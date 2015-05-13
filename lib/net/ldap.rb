@@ -641,6 +641,7 @@ class Net::LDAP
       os.code = Net::LDAP::ResultCodeSuccess
     end
     os.message = Net::LDAP.result2string(os.code)
+    os.result_controls = @result.result_controls if @result.is_a?(Net::LDAP::PDU)
     os
   end
 
@@ -888,7 +889,7 @@ class Net::LDAP
         password = args[:password]
         password = password.call if password.respond_to?(:call)
         result = rs if bind(:method => :simple, :username => dn,
-                            :password => password)
+                            :password => password, :control_raws => self.get_controls(args))
       end
     }
     result
@@ -1193,6 +1194,11 @@ class Net::LDAP
     return false if @force_no_page
     @server_caps ||= search_root_dse
     @server_caps[:supportedcontrol].include?(Net::LDAP::LDAPControls::PAGED_RESULTS)
+  end
+
+  def self.get_controls(args)
+    controls = args.include?(:control_raws) ? args[:control_raws] : nil 
+    controls = args.include?(:control_codes) ? args[:control_codes].to_ber_control : nil if controls.blank?
   end
 
   private

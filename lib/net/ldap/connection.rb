@@ -243,13 +243,14 @@ class Net::LDAP::Connection #:nodoc:
 
     raise Net::LDAP::BindingInformationInvalidError, "Invalid binding information" unless (user && psw)
 
+    controls   = Net::LDAP.get_controls(auth) #use nil so we can compact later
     message_id = next_msgid
     request    = [
       LdapVersion.to_ber, user.to_ber,
       psw.to_ber_contextspecific(0)
     ].to_ber_appsequence(Net::LDAP::PDU::BindRequest)
 
-    write(request, nil, message_id)
+    write(request, controls, message_id)
     pdu = queued_read(message_id)
 
     if !pdu || pdu.app_tag != Net::LDAP::PDU::BindResult
@@ -285,6 +286,7 @@ class Net::LDAP::Connection #:nodoc:
       auth[:challenge_response]
     raise Net::LDAP::BindingInformationInvalidError, "Invalid binding information" unless (mech && cred && chall)
 
+    controls   = Net::LDAP.get_controls(auth) #use nil so we can compact later
     message_id = next_msgid
 
     n = 0
@@ -294,7 +296,7 @@ class Net::LDAP::Connection #:nodoc:
         LdapVersion.to_ber, "".to_ber, sasl
       ].to_ber_appsequence(Net::LDAP::PDU::BindRequest)
 
-      write(request, nil, message_id)
+      write(request, controls, message_id)
       pdu = queued_read(message_id)
 
       if !pdu || pdu.app_tag != Net::LDAP::PDU::BindResult
@@ -337,7 +339,7 @@ class Net::LDAP::Connection #:nodoc:
 
     bind_sasl(:method => :sasl, :mechanism => "GSS-SPNEGO",
               :initial_credential => NTLM::Message::Type1.new.serialize,
-              :challenge_response => nego)
+              :challenge_response => nego, :control_raws => Net::LDAP.get_controls(auth))
   end
   private :bind_gss_spnego
 
@@ -615,13 +617,14 @@ class Net::LDAP::Connection #:nodoc:
     modify_dn = args[:dn] or raise "Unable to modify empty DN"
     ops = self.class.modify_ops args[:operations]
 
+    controls   = Net::LDAP.get_controls(args) #use nil so we can compact later
     message_id = next_msgid
     request    = [
       modify_dn.to_ber,
       ops.to_ber_sequence
     ].to_ber_appsequence(Net::LDAP::PDU::ModifyRequest)
 
-    write(request, nil, message_id)
+    write(request, controls, message_id)
     pdu = queued_read(message_id)
 
     if !pdu || pdu.app_tag != Net::LDAP::PDU::ModifyResponse
@@ -645,10 +648,11 @@ class Net::LDAP::Connection #:nodoc:
       add_attrs << [ k.to_s.to_ber, Array(v).map { |m| m.to_ber}.to_ber_set ].to_ber_sequence
     }
 
+    controls   = Net::LDAP.get_controls(args) #use nil so we can compact later
     message_id = next_msgid
     request    = [add_dn.to_ber, add_attrs.to_ber_sequence].to_ber_appsequence(Net::LDAP::PDU::AddRequest)
 
-    write(request, nil, message_id)
+    write(request, controls, message_id)
     pdu = queued_read(message_id)
 
     if !pdu || pdu.app_tag != Net::LDAP::PDU::AddResponse
@@ -667,11 +671,12 @@ class Net::LDAP::Connection #:nodoc:
     delete_attrs = args[:delete_attributes] ? true : false
     new_superior = args[:new_superior]
 
+    controls   = Net::LDAP.get_controls(args) #use nil so we can compact later
     message_id = next_msgid
     request    = [old_dn.to_ber, new_rdn.to_ber, delete_attrs.to_ber]
     request   << new_superior.to_ber_contextspecific(0) unless new_superior == nil
 
-    write(request.to_ber_appsequence(Net::LDAP::PDU::ModifyRDNRequest), nil, message_id)
+    write(request.to_ber_appsequence(Net::LDAP::PDU::ModifyRDNRequest), controls, message_id)
     pdu = queued_read(message_id)
 
     if !pdu || pdu.app_tag != Net::LDAP::PDU::ModifyRDNResponse
@@ -686,7 +691,7 @@ class Net::LDAP::Connection #:nodoc:
   #++
   def delete(args)
     dn = args[:dn] or raise "Unable to delete empty DN"
-    controls   = args.include?(:control_codes) ? args[:control_codes].to_ber_control : nil #use nil so we can compact later
+    controls   = Net::LDAP.get_controls(args) #use nil so we can compact later
     message_id = next_msgid
     request    = dn.to_s.to_ber_application_string(Net::LDAP::PDU::DeleteRequest)
 
@@ -699,4 +704,5 @@ class Net::LDAP::Connection #:nodoc:
 
     pdu
   end
+
 end # class Connection
