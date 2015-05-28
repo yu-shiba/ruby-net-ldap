@@ -1197,8 +1197,8 @@ class Net::LDAP
   end
 
   def self.get_controls(args)
-    controls = args.include?(:control_raws) ? args[:control_raws] : nil 
-    controls = args.include?(:control_codes) ? args[:control_codes].to_ber_control : nil if controls.blank?
+    controls = args.include?(:control_raws) ? args[:control_raws] : nil
+    controls = args.include?(:control_codes) ? args[:control_codes].to_ber_control : nil if controls.nil?
   end
 
   private
